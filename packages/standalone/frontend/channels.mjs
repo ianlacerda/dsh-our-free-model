@@ -2,12 +2,20 @@ import * as React from 'react'
 import { createRoot } from 'react-dom/client'
 import { shared } from 'ofm-shared-client'
 import { ChannelBrowser } from './components/channel-browser'
+import { t as i18nT, getLocale } from './i18n'
 import 'ofm-shared-styles.css'
 
 const { EacAuth, useEacLogin, DICT, Tank, usePool, poolReading, capacityText, CHANNEL_PROVIDERS, LedgerPage, LogsPage } = shared
 const h = React.createElement
-const t = key => DICT.zh[key] ?? key
-t.locale = 'zh'
+const t = Object.assign(key => {
+  const loc = getLocale()
+  const dict = loc === 'zh' ? DICT.zh : (DICT[loc] ?? DICT.en ?? DICT.zh)
+  return dict?.[key] ?? DICT.zh[key] ?? key
+}, {
+  get locale() {
+    return getLocale() === 'zh' ? 'zh' : 'en'
+  }
+})
 let requestLifetime = new AbortController()
 const ctx = {
   connection: { rpc: {
@@ -118,9 +126,9 @@ function ChannelConsole({ summary }) {
   return h(React.Fragment, null,
     h('header', { className: 'dashboard-heading' },
       h('div', null, h('div', { className: 'heading-eyebrow' }, 'WORKSPACE / CHANNELS'),
-        h('h1', null, '免费账号渠道'), h('p', null, '连接你的账号，把各家的免费额度汇集到一个 API。'))),
-    h('div', { className: 'ofm_seg', role: 'tablist', 'aria-label': '渠道管理页面' },
-      [['accounts', '登录与账号池'], ['ledger', '渠道用量'], ['logs', '请求日志'], ['tools', '供应商与备份']].map(([id, name]) =>
+        h('h1', null, i18nT('channels.title')), h('p', null, i18nT('channels.sub')))),
+    h('div', { className: 'ofm_seg', role: 'tablist', 'aria-label': i18nT('channels.title') },
+      [['accounts', i18nT('channels.tabAccounts')], ['ledger', i18nT('channels.tabLedger')], ['logs', i18nT('channels.tabLogs')], ['tools', i18nT('channels.tabTools')]].map(([id, name]) =>
         h('button', { key: id, role: 'tab', 'aria-selected': page === id, onClick: () => setPage(id) }, name))),
     page === 'accounts' ? h(ChannelBrowser, { rpc, summary })
       : page === 'ledger' ? h(LedgerPage, { t, ctx, summary })
@@ -137,14 +145,14 @@ function EacPage({ summary }) {
   return h(React.Fragment, null,
     h('header', { className: 'dashboard-heading' },
       h('div', null, h('div', { className: 'heading-eyebrow' }, 'WORKSPACE / EAC'),
-        h('h1', null, 'EAC 协付渠道'), h('p', null, '使用本机独立授权，连接共享资源池。'))),
+        h('h1', null, i18nT('eac.title')), h('p', null, i18nT('eac.sub')))),
     h(EacAuth, { t, auth, eacLogin: login }),
     h('div', { className: 'ofm_hero' },
-      h('h3', null, 'EAC 实时资源池'),
-      pool == null ? h('p', null, pool === undefined ? '正在查询资源池…' : '资源池暂时无法查询，请稍后刷新。')
+      h('h3', null, i18nT('eac.poolTitle')),
+      pool == null ? h('p', null, pool === undefined ? i18nT('eac.poolQuerying') : i18nT('eac.poolUnavailable'))
         : h(React.Fragment, null,
           h(Tank, { pct: reading.pct, level: reading.level, size: 'xl' }),
-          h('p', null, `当前并发：${pool.inflight} · 24 小时活跃：${reading.active ?? '未知'} · 容量：${pool.pool ?? '未知'}`),
+          h('p', null, i18nT('eac.inflight', { c: pool.inflight, a: reading.active ?? '—', p: pool.pool ?? '—' })),
           h('p', null, capacityText(pool, t)))))
 }
 
