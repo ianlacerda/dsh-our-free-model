@@ -8,6 +8,8 @@ import 'ofm-shared-styles.css'
 const { EacAuth, useEacLogin, DICT, Tank, usePool, poolReading, capacityText, CHANNEL_PROVIDERS, LedgerPage, LogsPage } = shared
 const h = React.createElement
 const t = Object.assign(key => {
+  const custom = i18nT(key)
+  if (custom && custom !== key) return custom
   const loc = getLocale()
   const dict = loc === 'zh' ? DICT.zh : (DICT[loc] ?? DICT.en ?? DICT.zh)
   return dict?.[key] ?? DICT.zh[key] ?? key
@@ -28,14 +30,14 @@ const ctx = {
       const result = await response.json()
       lifetime.throwIfAborted()
       if (response.status === 401) window.dispatchEvent(new CustomEvent('ofm:unauthorized'))
-      if (!response.ok) throw new Error(result.error ?? '渠道请求失败')
+      if (!response.ok) throw new Error(result.error ?? i18nT('channels.tools.reqFailed'))
       return result
     },
   } },
 }
 async function rpc(method, payload = {}) {
   const result = await ctx.connection.rpc.call('/api', 'channel-pack', { method, payload }, AbortSignal.timeout(180000))
-  if (!result.ok) throw new Error(result.error?.message ?? '渠道操作失败')
+  if (!result.ok) throw new Error(result.error?.message ?? i18nT('channels.tools.opFailed'))
   return result.value
 }
 const lockedProviders = new Set(['loomy'])
@@ -76,7 +78,7 @@ function ChannelTools({ summary }) {
       await reload()
       window.dispatchEvent(new CustomEvent('ofm:channels'))
       summary.reload?.()
-      setMessage('已保存。')
+      setMessage(i18nT('channels.tools.saved'))
     } catch (error) { setMessage(error.message) }
     finally { setBusy(false) }
   }
@@ -92,32 +94,32 @@ function ChannelTools({ summary }) {
     const selected = event.target.files[0]
     event.target.value = ''
     if (!selected) return
-    if (selected.size > 8 * 1024 * 1024) { setMessage('备份文件不能超过 8MB。'); return }
-    if (!window.confirm('导入会合并备份中的账号凭据、模型开关和积分锁定设置，确认继续吗？')) return
+    if (selected.size > 8 * 1024 * 1024) { setMessage(i18nT('channels.tools.backupLimit')); return }
+    if (!window.confirm(i18nT('channels.tools.importConfirm'))) return
     await run(async () => { await rpc('backup.import', { payload: JSON.parse(await selected.text()) }) })
   }
-  return h('section', { className: 'ofm_hero', 'aria-label': '供应商与数据管理' },
-    h('h3', null, '供应商与数据管理'),
+  return h('section', { className: 'ofm_hero', 'aria-label': i18nT('channels.tools.title') },
+    h('h3', null, i18nT('channels.tools.title')),
     h('div', { className: 'ofm_row' },
-      h('label', null, '供应商 ', h('select', { value: provider, disabled: busy, onChange: event => setProvider(event.target.value) },
-        CHANNEL_PROVIDERS.map(row => h('option', { value: row.id, key: row.id }, row.name)))),
+      h('label', null, i18nT('channels.tools.provider') + ' ', h('select', { value: provider, disabled: busy, onChange: event => setProvider(event.target.value) },
+        CHANNEL_PROVIDERS.map(row => h('option', { value: row.id, key: row.id }, i18nT('channels.providers.' + row.id + '.name') || row.name)))),
       h('button', { className: 'ofm_btn', disabled: busy || !status, onClick: () => run(() => rpc('provider.setEnabled', { provider, enabled: status.closed === true })) },
-        status?.closed ? '启用供应商' : '关闭供应商'),
-      lock ? h('label', null, h('input', { type: 'checkbox', checked: lock.locked === true, disabled: busy, onChange: event => run(() => rpc('credits.permanentLock', { provider, locked: event.target.checked })) }), ' 锁定永久积分') : null),
-    lock ? h('p', { className: 'ofm_note' }, lock.windowDays ? `锁定后仅使用 ${lock.windowDays} 天内到期的积分；免费模型沿用原有豁免规则。` : '锁定后按原渠道规则保护永久积分。') : null,
+        status?.closed ? i18nT('channels.tools.enableProvider') : i18nT('channels.tools.disableProvider')),
+      lock ? h('label', null, h('input', { type: 'checkbox', checked: lock.locked === true, disabled: busy, onChange: event => run(() => rpc('credits.permanentLock', { provider, locked: event.target.checked })) }), ' ' + i18nT('channels.tools.lockCredits')) : null),
+    lock ? h('p', { className: 'ofm_note' }, lock.windowDays ? i18nT('channels.tools.lockWindow', { days: lock.windowDays }) : i18nT('channels.tools.lockRule')) : null,
     h('div', { className: 'ofm_row' },
-      h('label', null, '账号 ', h('select', { value: account, disabled: busy, onChange: event => { setAccount(event.target.value); setNickname(accounts.find(row => row.id === event.target.value)?.nickname ?? '') } },
-        h('option', { value: '' }, '选择账号'),
+      h('label', null, i18nT('channels.tools.account') + ' ', h('select', { value: account, disabled: busy, onChange: event => { setAccount(event.target.value); setNickname(accounts.find(row => row.id === event.target.value)?.nickname ?? '') } },
+        h('option', { value: '' }, i18nT('channels.tools.selectAccount')),
         accounts.map(row => h('option', { value: row.id, key: row.id }, row.nickname ?? row.id)))),
-      h('input', { 'aria-label': '账号昵称', value: nickname, placeholder: '账号昵称', disabled: !account || busy, onChange: event => setNickname(event.target.value) }),
-      h('button', { className: 'ofm_btn', disabled: !account || busy, onClick: () => run(() => rpc('account.update', { accountId: account, patch: { nickname } })) }, '保存昵称'),
-      h('button', { className: 'ofm_btn', disabled: !account || busy, onClick: () => run(() => rpc('account.reorder', { provider, orderedIds: [account, ...accounts.filter(row => row.id !== account).map(row => row.id)] })) }, '优先使用'),
-      h('button', { className: 'ofm_btn', disabled: !account || busy, onClick: () => run(() => rpc('account.reset', { accountId: account })) }, '重置限流标记')),
+      h('input', { 'aria-label': i18nT('channels.tools.nickname'), value: nickname, placeholder: i18nT('channels.tools.nickname'), disabled: !account || busy, onChange: event => setNickname(event.target.value) }),
+      h('button', { className: 'ofm_btn', disabled: !account || busy, onClick: () => run(() => rpc('account.update', { accountId: account, patch: { nickname } })) }, i18nT('channels.tools.saveNickname')),
+      h('button', { className: 'ofm_btn', disabled: !account || busy, onClick: () => run(() => rpc('account.reorder', { provider, orderedIds: [account, ...accounts.filter(row => row.id !== account).map(row => row.id)] })) }, i18nT('channels.tools.prioritize')),
+      h('button', { className: 'ofm_btn', disabled: !account || busy, onClick: () => run(() => rpc('account.reset', { accountId: account })) }, i18nT('channels.tools.resetRateLimit'))),
     h('div', { className: 'ofm_row ofm_acts' },
-      h('button', { className: 'ofm_btn', disabled: busy, onClick: () => run(backup) }, '导出账号备份'),
-      h('button', { className: 'ofm_btn', disabled: busy, onClick: () => file.current.click() }, '导入账号备份'),
+      h('button', { className: 'ofm_btn', disabled: busy, onClick: () => run(backup) }, i18nT('channels.tools.exportBackup')),
+      h('button', { className: 'ofm_btn', disabled: busy, onClick: () => file.current.click() }, i18nT('channels.tools.importBackup')),
       h('input', { ref: file, type: 'file', hidden: true, accept: '.json,application/json', onChange: importFile })),
-    h('p', { className: 'ofm_note' }, '备份包含登录凭据，请保存在可信的本地位置。插件导出的原格式备份也可以手动导入。'),
+    h('p', { className: 'ofm_note' }, i18nT('channels.tools.backupNote')),
     message ? h('p', { role: 'status', className: 'ofm_note' }, message) : null)
 }
 

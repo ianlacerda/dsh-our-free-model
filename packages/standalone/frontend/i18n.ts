@@ -1,4 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
+import { EXTRA_DICTIONARY } from './i18n-extra'
 
 export type Locale = 'en' | 'pt-BR' | 'es' | 'fr' | 'zh'
 
@@ -1600,6 +1601,12 @@ const DICTIONARY: Record<Locale, Record<string, string>> = {
     'common.cancel': '取消',
     'common.language': '语言',
   },
+}
+
+for (const [loc, dict] of Object.entries(EXTRA_DICTIONARY)) {
+  if (DICTIONARY[loc as Locale]) {
+    Object.assign(DICTIONARY[loc as Locale], dict)
+  }
 }
 
 export function t(key: string, params?: Record<string, string | number>): string {

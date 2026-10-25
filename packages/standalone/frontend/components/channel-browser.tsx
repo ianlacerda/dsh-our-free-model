@@ -12,6 +12,8 @@ type Rpc = (method: string, payload?: object) => Promise<any>
 export function ChannelBrowser({ rpc, summary }: { rpc: Rpc; summary: Summary & { reload?(): void } }) {
   const [locale] = useLocale()
   const tShared = Object.assign((key: string) => {
+    const custom = t(key)
+    if (custom && custom !== key) return custom
     const dict = locale === 'zh' ? shared.DICT.zh : (shared.DICT[locale] ?? shared.DICT.en ?? shared.DICT.zh)
     return dict?.[key] ?? shared.DICT.zh[key] ?? key
   }, { locale: locale === 'zh' ? 'zh' : 'en' })
@@ -96,9 +98,9 @@ export function ChannelBrowser({ rpc, summary }: { rpc: Rpc; summary: Summary & 
     {selectedProvider ? <div className="provider-detail" data-testid="provider-detail">
       <div className="provider-detail-top"><Button variant="outline" onClick={() => select(undefined)}><ArrowLeft size={15} />{t('channels.back')}</Button>
         <span>{t('channels.storageNote')}</span></div>
-      <div className="provider-detail-layout"><Card className="provider-detail-sidebar"><h2 tabIndex={-1} ref={detailHeading}>{selectedProvider.name}</h2><p>{selectedProvider.org}</p>
+      <div className="provider-detail-layout"><Card className="provider-detail-sidebar"><h2 tabIndex={-1} ref={detailHeading}>{t(`channels.providers.${selectedProvider.id}.name`) || selectedProvider.name}</h2><p>{t(`channels.providers.org.${selectedProvider.org}`) || selectedProvider.org}</p>
         <div className="detail-label">{t('channels.switchChannel')}</div>{providers.map(provider => <button className={`detail-provider-link ${provider.id === selected ? 'active' : ''}`} key={provider.id}
-          onClick={() => select(provider.id)}><span>{provider.name}</span>{provider.id === selected && <Check size={14} />}</button>)}</Card>
+          onClick={() => select(provider.id)}><span>{t(`channels.providers.${provider.id}.name`) || provider.name}</span>{provider.id === selected && <Check size={14} />}</button>)}</Card>
         <div className="provider-detail-main"><div className="provider-detail-description"><h2>{t('channels.accountsAndModels')}</h2><p>{t('channels.accountsAndModelsSub')}</p></div>
           <shared.ChannelCard key={selectedProvider.id} channel={selectedProvider} status={statuses?.[selectedProvider.id]} rpc={rpc} t={tShared} onChanged={onChanged} onError={onError} />
           <div className="detail-security-note"><ShieldCheck size={16} />{t('channels.ruleNote')}</div>
@@ -113,10 +115,13 @@ export function ChannelBrowser({ rpc, summary }: { rpc: Rpc; summary: Summary & 
         const status = statuses?.[provider.id]
         const state = status === undefined ? t('channels.reading') : status.closed ? t('channels.closed') : (status.accounts?.enabled ?? 0) > 0 ? t('channels.filterConnected') : t('channels.filterPending')
         const isConn = state === t('channels.filterConnected')
+        const name = t(`channels.providers.${provider.id}.name`) || provider.name
+        const org = t(`channels.providers.org.${provider.org}`) || provider.org
+        const note = t(`channels.providers.${provider.id}.note`) || provider.note
         return <Card className="provider-card" key={provider.id}>
-          <div className="provider-card-top"><span className="provider-logo" style={{ color: provider.accent, backgroundColor: `${provider.accent}0d` }}>{provider.name.slice(0, 2).toUpperCase()}</span>
+          <div className="provider-card-top"><span className="provider-logo" style={{ color: provider.accent, backgroundColor: `${provider.accent}0d` }}>{name.slice(0, 2).toUpperCase()}</span>
             <Badge tone={isConn ? 'success' : 'neutral'}>{isConn && <span className="status-dot" />}{state}</Badge></div>
-          <h2>{provider.name}</h2><div className="provider-org">{provider.org}</div><p className="provider-description">{provider.note}</p>
+          <h2>{name}</h2><div className="provider-org">{org}</div><p className="provider-description">{note}</p>
           <div className="provider-counts"><span>{t('channels.accounts')} <strong>{status ? status.accounts?.total ?? 0 : '—'}</strong></span>
             <span>{t('usage.thModel')} <strong>{status ? Math.max(0, (status.models?.total ?? 0) - (status.models?.disabled ?? 0)) : '—'}</strong></span></div>
           <Button variant="outline" className="provider-manage" onClick={() => select(provider.id)}>{t('channels.manage')} <ArrowRight size={14} /></Button>

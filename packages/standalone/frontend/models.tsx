@@ -14,11 +14,17 @@ const availabilityNames: Record<string, string> = {
   unavailable: '不可用', throttled: '限流中', 'region-blocked': '地区受限',
 }
 const sourceNames: Record<string, string> = { anonymous: '匿名模型', kilo: 'Kilo 免费池', eac: 'EAC 协付' }
-const channelName = (id: string) => sourceNames[id]
-  ?? providers.find(provider => provider.id === id)?.name ?? id
+const channelName = (id: string) => {
+  if (typeof t === 'function') {
+    if (id === 'anonymous') return t('models.sources.anonymous')
+    if (id === 'kilo') return t('models.sources.kilo')
+    if (id === 'eac') return t('models.sources.eac')
+  }
+  return sourceNames[id] ?? providers.find(provider => provider.id === id)?.name ?? id
+}
 const number = (value: number) => new Intl.NumberFormat('zh-CN').format(value)
 const capacity = (value?: number) => value && Number.isFinite(value) && value > 0
-  ? value >= 1000 ? `${Number((value / 1000).toFixed(1))}K` : number(value) : '未知'
+  ? value >= 1000 ? `${Number((value / 1000).toFixed(1))}K` : number(value) : (typeof t === 'function' ? t('models.unknownLimit') : '未知')
 const initialFilters = { search: '', channel: 'all', capability: 'all', availability: 'all', access: 'all' }
 type Operation = 'refresh' | 'probe' | 'test'
 type TestState = { model: Model; state: 'pending' | 'success' | 'error' | 'cancelled'; result?: ModelTestResult; error?: string }
@@ -90,8 +96,8 @@ export function Models({ summary, host, active }: { summary: Summary; host: Host
           await host.refresh()
         } catch (reason) {
           if (!isCurrent()) return
-          const detail = reason instanceof Error ? reason.name === 'TimeoutError' ? '请求超时，请重试。' : reason.message : '请求失败，请重试。'
-          setError(`模型测试已成功，但刷新摘要失败：${detail}`)
+          const detail = reason instanceof Error ? reason.name === 'TimeoutError' ? (typeof t === 'function' ? t('models.timeout') : '请求超时，请重试。') : reason.message : (typeof t === 'function' ? t('models.opFailed') : '请求失败，请重试。')
+          setError(typeof t === 'function' ? t('models.refreshFailed', { detail }) : `模型测试已成功，但刷新摘要失败：${detail}`)
         }
       } else {
         await host.refreshModels(kind === 'probe', controller.signal)
@@ -100,7 +106,7 @@ export function Models({ summary, host, active }: { summary: Summary; host: Host
       }
     } catch (reason) {
       if (!isCurrent()) return
-      const detail = reason instanceof Error ? reason.name === 'TimeoutError' ? '请求超时，请重试。' : reason.message : '操作失败，请重试。'
+      const detail = reason instanceof Error ? reason.name === 'TimeoutError' ? (typeof t === 'function' ? t('models.timeout') : '请求超时，请重试。') : reason.message : (typeof t === 'function' ? t('models.opFailed') : '操作失败，请重试。')
       if (kind === 'test' && model) setTest({ model, state: 'error', error: detail })
       else setError(detail)
     } finally {
@@ -133,7 +139,7 @@ export function Models({ summary, host, active }: { summary: Summary; host: Host
       if (activeRef.current) setMessage(visibility.saved)
       try { await host.refresh() } catch (reason) { if (activeRef.current) host.error(reason as Error) }
     } catch (reason) {
-      if (activeRef.current) setError(reason instanceof Error ? reason.message : '保存失败，请重试。')
+      if (activeRef.current) setError(reason instanceof Error ? reason.message : (typeof t === 'function' ? t('models.saveFailed') : '保存失败，请重试。'))
     } finally {
       visibilityPending.current = false
       setVisibilitySaving(false)
@@ -160,7 +166,7 @@ export function Models({ summary, host, active }: { summary: Summary; host: Host
     </header>
     <div className="model-summary">
       <span><span className={`status-dot ${summary.settings.enabled ? '' : 'paused'}`} />{summary.settings.enabled ? (typeof t === 'function' ? t('ov.quick.enabled') : '推理已启用') : (typeof t === 'function' ? t('ov.quick.paused') : '推理已暂停')}</span>
-      <span>{typeof t === 'function' ? t('models.lastSynced', { time: summary.catalogSyncedAt ? new Date(summary.catalogSyncedAt).toLocaleString('zh-CN', { hour12: false }) : '尚未刷新' }) : `清单更新：${summary.catalogSyncedAt ? new Date(summary.catalogSyncedAt).toLocaleString('zh-CN', { hour12: false }) : '尚未刷新'}`}</span>
+      <span>{typeof t === 'function' ? t('models.lastSynced', { time: summary.catalogSyncedAt ? new Date(summary.catalogSyncedAt).toLocaleString(locale === 'zh' ? 'zh-CN' : locale, { hour12: false }) : (typeof t === 'function' ? t('models.neverSynced') : '尚未刷新') }) : `清单更新：${summary.catalogSyncedAt ? new Date(summary.catalogSyncedAt).toLocaleString('zh-CN', { hour12: false }) : '尚未刷新'}`}</span>
     </div>
     {error && <div className="channel-error" role="alert"><CircleAlert size={16} /><span>{error}</span>
       <Button variant="ghost" aria-label={typeof t === 'function' ? t('common.close') : '关闭'} title={typeof t === 'function' ? t('common.close') : '关闭'} onClick={() => setError('')}><X size={15} /></Button></div>}
@@ -179,7 +185,7 @@ export function Models({ summary, host, active }: { summary: Summary; host: Host
       </select>
     </div>
     <div className="model-list-toolbar">
-      <div className="channel-filters" role="group" aria-label={typeof t === 'function' ? t('models.allAccess') : '筛选范围'}>
+      <div className="channel-filters" role="group" aria-label={typeof t === 'function' ? t('models.filterScope') : '筛选范围'}>
         {([['all', typeof t === 'function' ? t('models.allAccess') : '全部模型'], ['routable', typeof t === 'function' ? t('models.publicOnly') : '可接入'], ['hidden', typeof t === 'function' ? t('models.hiddenOnly') : '未公开']] as const).map(([id, name]) =>
           <button key={id} aria-pressed={filters.access === id} onClick={() => changeFilters({ access: id })}>{name}</button>)}
       </div>
@@ -192,7 +198,7 @@ export function Models({ summary, host, active }: { summary: Summary; host: Host
       <label><input type="checkbox" role="switch" checked={summary.settings.hideEacModels === true}
         disabled={visibilitySaving} onChange={event => { void saveVisibility({ hideEacModels: event.target.checked }) }} /> {visibility.hideEac}</label>
     </div>
-    {test && <section className={`model-test-result model-test-${test.state}`} aria-label="模型测试结果" aria-live="polite">
+    {test && <section className={`model-test-result model-test-${test.state}`} aria-label={typeof t === 'function' ? t('models.testResult') : '模型测试结果'} aria-live="polite">
       <div className="model-test-heading"><div><strong>
         {test.state === 'pending' ? (typeof t === 'function' ? t('models.testing') : '正在测试') : test.state === 'success' ? (typeof t === 'function' ? t('models.testSuccess') : '测试完成') : test.state === 'cancelled' ? (typeof t === 'function' ? t('models.cancel') : '测试已取消') : (typeof t === 'function' ? t('common.error') : '测试失败')}
       </strong><span>{test.model.name}{test.result && ` · ${number(test.result.latencyMs)} ms`}</span></div>
@@ -202,10 +208,10 @@ export function Models({ summary, host, active }: { summary: Summary; host: Host
       {test.state === 'success' && <><pre>{test.result?.text}</pre>{test.result?.persisted === false && <p role="status">{typeof t === 'function' ? t('models.testSuccess') : '测试已成功'}</p>}</>}
       {test.state === 'error' && <p>{test.error}</p>}
     </section>}
-    {models.length ? <div className="model-table" role="table" aria-label={typeof t === 'function' ? t('models.heading') : '模型清单'} aria-rowcount={models.length + 1} aria-colcount={5}>
-      <div className="model-table-header" role="row"><span role="columnheader">{typeof t === 'function' ? t('usage.thModel') : '模型 / ID'}</span><span role="columnheader">{typeof t === 'function' ? t('shell.nav.channels') : '渠道与能力'}</span>
-        <span role="columnheader">{typeof t === 'function' ? t('models.context') : '上下文'} / {typeof t === 'function' ? t('models.output') : '输出'}</span><span role="columnheader">{typeof t === 'function' ? t('models.allAvailability') : '可用状态'}</span><span role="columnheader">...</span></div>
-      <div ref={scrollRef} className="model-scroll" role="rowgroup" tabIndex={0} aria-label={typeof t === 'function' ? t('models.heading') : '滚动模型列表'} onKeyDown={event => {
+    {models.length ? <div className="model-table" role="table" aria-label={typeof t === 'function' ? t('models.tableLabel') : '模型清单'} aria-rowcount={models.length + 1} aria-colcount={5}>
+      <div className="model-table-header" role="row"><span role="columnheader">{typeof t === 'function' ? t('models.thModel') : '模型 / ID'}</span><span role="columnheader">{typeof t === 'function' ? t('models.thChannel') : '渠道与能力'}</span>
+        <span role="columnheader">{typeof t === 'function' ? t('models.thLimits') : '上下文 / 输出'}</span><span role="columnheader">{typeof t === 'function' ? t('models.thState') : '可用状态'}</span><span role="columnheader">{typeof t === 'function' ? t('models.thActions') : '操作'}</span></div>
+      <div ref={scrollRef} className="model-scroll" role="rowgroup" tabIndex={0} aria-label={typeof t === 'function' ? t('models.scrollLabel') : '滚动模型列表'} onKeyDown={event => {
         if (event.target !== event.currentTarget) return
         if (event.key === 'Home' || event.key === 'End') {
           event.preventDefault()
@@ -218,8 +224,8 @@ export function Models({ summary, host, active }: { summary: Summary; host: Host
             const state = model.availabilitySource === 'listing' ? 'listed' : model.availability ?? 'unknown'
             const manual = model.availabilitySource === 'manual'
             const failed = manual && state === 'unknown'
-            const availabilityName = failed ? (typeof t === 'function' ? t('models.avail.unavailable') : '实测失败') : manual && state === 'available' ? (typeof t === 'function' ? t('models.avail.available') : '实测可用') : (typeof t === 'function' ? t(`models.avail.${state === 'region-blocked' ? 'regionBlocked' : state}`) || availabilityNames[state] : availabilityNames[state]) ?? '未知状态'
-            const disabledReason = !summary.settings.enabled ? (typeof t === 'function' ? t('ov.quick.paused') : '推理服务已暂停') : !model.routable && !model.hiddenByUser ? '模型尚未公开，请检查渠道账号或模型设置' : operation ? (typeof t === 'function' ? t('models.testing') : '请等待当前操作完成') : ''
+            const availabilityName = failed ? (typeof t === 'function' ? t('models.avail.unavailable') : '实测失败') : manual && state === 'available' ? (typeof t === 'function' ? t('models.avail.available') : '实测可用') : (typeof t === 'function' ? t(`models.avail.${state === 'region-blocked' ? 'regionBlocked' : state}`) || availabilityNames[state] : availabilityNames[state]) ?? (typeof t === 'function' ? t('models.unknownLimit') : '未知状态')
+            const disabledReason = !summary.settings.enabled ? (typeof t === 'function' ? t('ov.quick.paused') : '推理服务已暂停') : !model.routable && !model.hiddenByUser ? (typeof t === 'function' ? t('models.notPublicHint') : '模型尚未公开，请检查渠道账号或模型设置') : operation ? (typeof t === 'function' ? t('models.waitPending') : '请等待当前操作完成') : ''
             return <div role="row" aria-rowindex={item.index + 2} key={item.key} data-index={item.index} data-model-id={model.id}
               className="model-table-row" ref={virtual.measureElement} style={{ transform: `translateY(${item.start}px)` }}
               onFocusCapture={() => setFocusedId(model.id)} onBlurCapture={event => {
@@ -234,7 +240,7 @@ export function Models({ summary, host, active }: { summary: Summary; host: Host
                 {availabilityName}</Badge>
                 {manual && state !== 'available' && model.detail && <small title={model.detail}
                   style={{ maxWidth: '100%', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{model.detail}</small>}
-                {!model.routable && <small>{model.hiddenByUser ? visibility.hidden : '未公开'}</small>}
+                {!model.routable && <small>{model.hiddenByUser ? visibility.hidden : (typeof t === 'function' ? t('models.notPublic') : '未公开')}</small>}
                 {model.ttftMs != null && <small>{typeof t === 'function' ? t('models.latency') : '首响应'} {number(model.ttftMs)} ms</small>}</div>
               <div role="cell" className="model-row-actions">
                 {['anonymous', 'kilo', 'eac', 'aggregate', 'combo'].includes(model.channel) && <Button variant="ghost"
@@ -244,12 +250,12 @@ export function Models({ summary, host, active }: { summary: Summary; host: Host
                   onClick={() => { const ids = summary.settings.hiddenModelIds ?? []; void saveVisibility({
                     hiddenModelIds: ids.includes(model.id) ? ids.filter(id => id !== model.id) : [...ids, model.id],
                   }) }}>{model.hiddenByUser ? <Eye size={16} /> : <EyeOff size={16} />}</Button>}
-                <Button variant="ghost" title={typeof t === 'function' ? t('models.copyId') : `复制 ${model.id}`} aria-label={`复制模型 ID：${model.id}`} onClick={() => copyModelId(model)}
+                <Button variant="ghost" title={typeof t === 'function' ? t('models.copyId') : `复制 ${model.id}`} aria-label={typeof t === 'function' ? t('models.copyIdLabel', { id: model.id }) : `复制模型 ID：${model.id}`} onClick={() => copyModelId(model)}
                   className={copied === model.id ? 'md-copy-done' : ''}>
                   {copied === model.id ? <Check size={16} /> : <Copy size={16} />}
                 </Button>
                 <Button variant="outline" disabled={!!disabledReason} title={disabledReason || `${typeof t === 'function' ? t('models.test') : '测试'} ${model.name}`}
-                  aria-label={`测试模型：${model.id}`} onClick={() => { void run('test', model) }}
+                  aria-label={typeof t === 'function' ? t('models.testModelLabel', { id: model.id }) : `测试模型：${model.id}`} onClick={() => { void run('test', model) }}
                   className={operation === 'test' && test?.model.id === model.id ? 'md-testing' : ''}>
                   {operation === 'test' && test?.model.id === model.id ? <LoaderCircle size={14} className="spinning" /> : <Play size={14} />}{typeof t === 'function' ? t('models.test') : '测试'}
                 </Button>
@@ -262,6 +268,6 @@ export function Models({ summary, host, active }: { summary: Summary; host: Host
       <p>{typeof t === 'function' ? t('models.emptySub') : '调整搜索条件或清空筛选。'}</p>
       {filtered && <Button variant="outline" onClick={() => changeFilters(initialFilters)}><SlidersHorizontal size={15} />{typeof t === 'function' ? t('models.resetFilters') : '清空筛选'}</Button>}
     </div>}
-    <p className="footnote">清单收录不代表实时可用。Kilo 免费池可能记录提示词，请勿发送敏感内容。</p>
+    <p className="footnote">{typeof t === 'function' ? t('models.footnote') : '清单收录不代表实时可用。Kilo 免费池可能记录提示词，请勿发送敏感内容。'}</p>
   </div>
 }
