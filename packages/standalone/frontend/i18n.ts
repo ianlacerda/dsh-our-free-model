@@ -32,6 +32,9 @@ function detectInitialLocale(): Locale {
 }
 
 let currentLocale: Locale = detectInitialLocale()
+if (typeof document !== 'undefined') {
+  document.documentElement.lang = currentLocale === 'pt-BR' ? 'pt-BR' : currentLocale === 'zh' ? 'zh-CN' : currentLocale
+}
 const listeners = new Set<() => void>()
 
 export function getLocale(): Locale {

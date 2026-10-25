@@ -30,8 +30,8 @@ type Operation = 'refresh' | 'probe' | 'test'
 type TestState = { model: Model; state: 'pending' | 'success' | 'error' | 'cancelled'; result?: ModelTestResult; error?: string }
 
 export function Models({ summary, host, active }: { summary: Summary; host: Host; active: boolean }) {
-  const [locale] = typeof useLocale === 'function' ? useLocale() : ['en']
-  const visibility = visibilityCopy(typeof document !== 'undefined' ? document.documentElement.lang : locale)
+  const [locale] = typeof useLocale === 'function' ? useLocale() : [(typeof document !== 'undefined' && document.documentElement?.lang) || 'en']
+  const visibility = visibilityCopy(locale)
   const [filters, setFilters] = useState(initialFilters)
   const [operation, setOperation] = useState<Operation>()
   const [test, setTest] = useState<TestState>()
