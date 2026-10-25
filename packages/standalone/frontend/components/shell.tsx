@@ -1,4 +1,4 @@
-import { Coffee, Activity, Boxes, Cable, ChevronRight, Globe, Handshake, LayoutDashboard, LogOut, Moon, Network, Settings2, ShieldCheck, Sun } from 'lucide-react'
+import { Coffee, Activity, Boxes, Cable, ChevronRight, Globe, Handshake, LayoutDashboard, LogOut, Moon, Network, Settings2, ShieldCheck, Sun, Monitor, PanelsTopLeft, LibraryBig, Route } from 'lucide-react'
 import { useState } from 'react'
 import { flushSync } from 'react-dom'
 import brandMark from '../../../../icon.svg?inline'
@@ -9,10 +9,15 @@ import type { Host, Page, Summary } from '../types'
 const navigation = [
   { groupKey: 'workspaceGroup', items: [
     { id: 'overview', key: 'overview', icon: LayoutDashboard },
+    { id: 'workspace', key: 'workspace', icon: PanelsTopLeft },
+    { id: 'agents', key: 'agents', icon: Monitor },
     { id: 'models', key: 'models', icon: Boxes },
     { id: 'usage', key: 'usage', icon: Activity },
+    { id: 'library', key: 'library', icon: LibraryBig },
   ] },
   { groupKey: 'channelsGroup', items: [
+    { id: 'providers', key: 'providers', icon: PanelsTopLeft },
+    { id: 'routing', key: 'routing', icon: Route },
     { id: 'channels', key: 'channels', icon: Network },
     { id: 'eac', key: 'eac', icon: Handshake },
     { id: 'connection', key: 'connection', icon: Cable },
@@ -76,11 +81,12 @@ export function LanguageSelect() {
 }
 
 export const pageNames: Record<Page, string> = {
-  overview: '概览', models: '模型清单', usage: '用量统计', channels: '免费账号渠道',
+  overview: '概览', workspace: '模型工作台', models: '模型清单', usage: '用量统计', channels: 'EAC router',
+  agents: '客户端与订阅', providers: '聚合渠道', library: '资源库', routing: '路由组',
   eac: 'EAC 协付渠道', settings: '服务设置', connection: 'API 接入', sponsor: '来自赞助商的广告',
 }
 
-export function Sidebar({ page, summary, host }: { page: Page; summary?: Summary; host: Host }) {
+export function Sidebar({ page, summary, host, onDisclaimer }: { page: Page; summary?: Summary; host: Host; onDisclaimer?(): void }) {
   useLocale()
   return <>
     <a className="console-brand" href="/" aria-label="Our Free Model">
@@ -103,6 +109,7 @@ export function Sidebar({ page, summary, host }: { page: Page; summary?: Summary
     <div className="console-sidebar-footer"><div><span className="status-dot" />{t('shell.online')}<small>v{summary?.version ?? '—'}</small></div>
       <LanguageSelect />
       <ThemeToggle /><Button variant="ghost" aria-label={t('shell.logout')} title={t('shell.logout')} onClick={() => { void host.logout().catch(host.error) }}><LogOut size={16} /></Button></div>
+    {onDisclaimer && <button type="button" className="sidebar-disclaimer" onClick={onDisclaimer}>{t('shell.disclaimer')}</button>}
   </>
 }
 

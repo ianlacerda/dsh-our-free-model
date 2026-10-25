@@ -6,12 +6,19 @@ import { Sidebar, Topbar, LanguageSelect } from './components/shell'
 import { Overview } from './components/overview'
 import { Connection } from './connection'
 import { t, useLocale } from './i18n'
+import { Agents } from './agents'
+import { Providers } from './providers'
+import { Library } from './library'
+import { Routing } from './routing'
+import { Workspace } from './workspace'
+import { DisclaimerDialog } from './components/disclaimer-dialog'
 import type { Host, Page, ServiceSettings, Snapshot } from './types'
 import './app.css'
+import './workbench.css'
 import { SponsorPage, SponsorNotice } from './sponsor'
 
 const API = '/api/management'
-const pageNames: Page[] = ['overview', 'models', 'usage', 'channels', 'eac', 'settings', 'connection', 'sponsor']
+const pageNames: Page[] = ['overview', 'agents', 'providers', 'library', 'routing', 'models', 'usage', 'channels', 'eac', 'settings', 'connection', 'sponsor']
 const platform = document.getElementById('root')?.dataset.loginPlatform ?? (/Windows/i.test(navigator.userAgent) ? 'windows' : /Macintosh|Mac OS/i.test(navigator.userAgent) ? 'macos' : 'unsupported')
 const terminalName = platform === 'windows' ? 'PowerShell' : 'Terminal'
 type Request = <T = any>(path: string, body?: unknown, timeoutMs?: number, signal?: AbortSignal) => Promise<T>
@@ -21,10 +28,10 @@ function LoginScreen({ request }: { request: Request }) {
   useLocale()
   const [key, setKey] = useState(''), [error, setError] = useState(''), [status, setStatus] = useState(''), [busy, setBusy] = useState(false)
   const command = platform === 'windows'
-    ? '(Get-Content -LiteralPath "$env:USERPROFILE\\.our-free-model\\settings.json" -Raw -Encoding UTF8 | ConvertFrom-Json).forwardKey | Set-Clipboard'
+    ? '$ofmLogin = Get-Content -LiteralPath "$env:USERPROFILE\\.our-free-model\\settings.json" -Raw -Encoding UTF8 | ConvertFrom-Json; $(if ($ofmLogin.managementKey) { $ofmLogin.managementKey } else { $ofmLogin.forwardKey }) | Set-Clipboard'
     : platform === 'macos'
-      ? `node -e 'const fs = require("node:fs"); const {execFileSync} = require("node:child_process"); const key = JSON.parse(fs.readFileSync(process.argv[1], "utf8")).forwardKey; if (typeof key !== "string" || !key.trim()) throw new Error("missing login token"); execFileSync("/usr/bin/pbcopy", [], {input: key});' "$HOME/.our-free-model/settings.json"`
-      : `node -e 'const fs = require("node:fs"); const key = JSON.parse(fs.readFileSync(process.argv[1], "utf8")).forwardKey; if (typeof key !== "string" || !key.trim()) throw new Error("missing login token"); process.stdout.write(key + "\\n");' "$HOME/.our-free-model/settings.json"`
+      ? `node -e 'const fs = require("node:fs"); const {execFileSync} = require("node:child_process"); const settings = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); const key = settings.managementKey ?? settings.forwardKey; if (typeof key !== "string" || !key.trim()) throw new Error("missing login token"); execFileSync("/usr/bin/pbcopy", [], {input: key});' "$HOME/.our-free-model/settings.json"`
+      : `node -e 'const fs = require("node:fs"); const settings = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); const key = settings.managementKey ?? settings.forwardKey; if (typeof key !== "string" || !key.trim()) throw new Error("missing login token"); process.stdout.write(key + "\\n");' "$HOME/.our-free-model/settings.json"`
   const submit = async (event: FormEvent) => { event.preventDefault(); if (busy) return; setBusy(true); setError(''); try { await request('/session', { key: key.trim() }); setKey(''); window.dispatchEvent(new CustomEvent('ofm:logged-in')) } catch (reason) { setError(messageOf(reason)) } finally { setBusy(false) } }
   const openTerminal = async () => { if (platform === 'unsupported' || busy) return; setBusy(true); setStatus(t('login.openingTerminal', { terminal: terminalName })); try { await request('/login/terminal', {}, 15000); setStatus(t('login.terminalOpened', { terminal: terminalName })); document.getElementById('login-key')?.focus() } catch (reason) { setStatus(`${messageOf(reason)}`) } finally { setBusy(false) } }
   const copyCommand = async () => { try { await navigator.clipboard.writeText(command); setStatus(t('login.copied', { terminal: terminalName })) } catch { const input = document.getElementById('login-command') as HTMLTextAreaElement | null; input?.focus(); input?.select(); setStatus(t('login.copyFallback', { key: platform === 'macos' ? 'Cmd+C' : 'Ctrl+C' })) } }
@@ -51,6 +58,10 @@ function App() {
   if (typeof useLocale === 'function') useLocale()
   const [mode, setMode] = useState<'loading' | 'login' | 'ready'>('loading'), [snapshot, setSnapshot] = useState<Snapshot>(), [page, setPage] = useState<Page>('overview'), [notice, setNotice] = useState(''), [error, setError] = useState('')
   const [visited, setVisited] = useState<Page[]>([])
+  // The disclaimer reads once on the first console visit and is reopenable from
+  // the sidebar. It never gates the lanes: acknowledging only writes a setting.
+  const [disclaimer, setDisclaimer] = useState<{ acknowledged?: boolean } | undefined>(undefined)
+  const [disclaimerOpen, setDisclaimerOpen] = useState(false)
   const generation = useRef(0), loading = useRef<Promise<void> | undefined>(undefined), authenticated = useRef(false), settingsRevision = useRef(0)
   const enterLogin = (reason = '') => { generation.current++; loading.current = undefined; authenticated.current = false; setSnapshot(undefined); setVisited([]); setPage('overview'); setError(reason); setNotice(''); setMode('login') }
   const request: Request = async (path, body, timeoutMs = 10000, signal) => { const current = generation.current; const response = await fetch(API + path, { method: body === undefined ? 'GET' : 'POST', credentials: 'same-origin', cache: 'no-store', headers: body === undefined ? {} : { 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body), signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs) }); const value = await response.json(); if (!response.ok) { const reason = Object.assign(new Error(value.error ?? `请求失败（${response.status}）`), { status: response.status }); if (current === generation.current && response.status === 401 && path !== '/session') enterLogin(reason.message); throw reason } if (current !== generation.current) throw new Error('管理会话已变化，请重新操作。'); return value }
@@ -60,9 +71,17 @@ function App() {
   useEffect(() => { const onUnauthorized = () => enterLogin(typeof t === 'function' ? t('login.failed') : '管理会话已失效，请重新登录'); window.addEventListener('ofm:unauthorized', onUnauthorized); return () => window.removeEventListener('ofm:unauthorized', onUnauthorized) }, [])
   useEffect(() => { const token = new URLSearchParams(location.hash.slice(1)).get('login'); if (token) history.replaceState(null, '', location.pathname + location.search); void (async () => { try { if (token) await request('/session', { bootstrapToken: token }); await loadData() } catch (reason) { enterLogin((reason as any)?.status === 401 && !token ? '' : messageOf(reason)) } })() }, [])
   useEffect(() => { if (mode !== 'ready') return; const timer = window.setInterval(() => { if (!document.hidden) void loadData().catch(reason => setError(messageOf(reason))) }, 15000); return () => window.clearInterval(timer) }, [mode])
-  const content: ReactNode = snapshot && page === 'sponsor' ? <SponsorPage /> : snapshot && page === 'overview' ? <Overview {...snapshot} host={host} /> : snapshot && page === 'connection' ? <Connection summary={snapshot.summary} host={host} active /> : snapshot && (page === 'channels' || page === 'eac') ? <ChannelMount key={page} kind={page} summary={{ ...snapshot.summary, reload: () => { void loadData() } }} /> : null
+  useEffect(() => {
+    if (mode !== 'ready') return
+    let alive = true
+    request<{ acknowledged?: boolean }>('/disclaimer')
+      .then(value => { if (alive) { setDisclaimer(value); if (value.acknowledged !== true) setDisclaimerOpen(true) } })
+      .catch(() => { if (alive) setDisclaimer({ acknowledged: true }) })
+    return () => { alive = false }
+  }, [mode])
+  const content: ReactNode = snapshot && page === 'routing' ? <Routing active host={host} /> : snapshot && page === 'workspace' ? <Workspace active /> : snapshot && page === 'library' ? <Library active /> : snapshot && page === 'agents' ? <Agents summary={snapshot.summary} active host={host} /> : snapshot && page === 'providers' ? <Providers active host={host} /> : snapshot && page === 'sponsor' ? <SponsorPage /> : snapshot && page === 'overview' ? <Overview {...snapshot} host={host} /> : snapshot && page === 'connection' ? <Connection summary={snapshot.summary} host={host} active /> : snapshot && (page === 'channels' || page === 'eac') ? <ChannelMount key={page} kind={page} summary={{ ...snapshot.summary, reload: () => { void loadData() } }} /> : null
   if (mode === 'loading') return <LoadingScreen />
   if (mode === 'login') return <LoginScreen request={async (...args) => { const result = await request(...args); if (args[0] === '/session') await loadData(); return result }} />
-  return <div id="app" className="app-shell"><aside className="sidebar"><Sidebar page={page} summary={snapshot?.summary} host={host} /></aside><main><header className="topbar"><Topbar page={page} summary={snapshot?.summary} /></header>{snapshot?.summary.networkMode === 'fixture' && <div className="notice test-mode-notice notice-enter" role="alert">当前为本机替身测试模式：账号、模型回答与额度均为测试数据。</div>}{notice && <div className="notice notice-enter" role="status">{notice}<button className="text-button" onClick={() => setNotice('')}>{typeof t === 'function' ? t('common.close') : '关闭'}</button></div>}{error && <div className="notice error-notice notice-enter" role="alert"><AlertCircle size={16} /><span>{error}</span><button className="text-button" onClick={() => { setError(''); void loadData() }}>重试</button></div>}<section className="page">{content}{snapshot && (['models', 'usage', 'settings'] as const).filter(name => visited.includes(name)).map(name => <div key={name} hidden={page !== name}><LazyPage name={name} snapshot={snapshot} host={host} active={page === name} /></div>)}</section><footer>OUR FREE MODEL <span>·</span> {typeof t === 'function' ? t('shell.localStorage') : '本地运行 · 由你掌控'}</footer></main><SponsorNotice targetId="ofm-sponsor-menu-desktop" placement="side" /></div>
+  return <div id="app" className="app-shell"><aside className="sidebar"><Sidebar page={page} summary={snapshot?.summary} host={host} onDisclaimer={() => setDisclaimerOpen(true)} /></aside><main><header className="topbar"><Topbar page={page} summary={snapshot?.summary} /></header>{snapshot?.summary.networkMode === 'fixture' && <div className="notice test-mode-notice notice-enter" role="alert">当前为本机替身测试模式：账号、模型回答与额度均为测试数据。</div>}{notice && <div className="notice notice-enter" role="status">{notice}<button className="text-button" onClick={() => setNotice('')}>{typeof t === 'function' ? t('common.close') : '关闭'}</button></div>}{error && <div className="notice error-notice notice-enter" role="alert"><AlertCircle size={16} /><span>{error}</span><button className="text-button" onClick={() => { setError(''); void loadData() }}>重试</button></div>}<section className="page">{content}{snapshot && (['models', 'usage', 'settings'] as const).filter(name => visited.includes(name)).map(name => <div key={name} hidden={page !== name}><LazyPage name={name} snapshot={snapshot} host={host} active={page === name} /></div>)}</section><footer>OUR FREE MODEL <span>·</span> {typeof t === 'function' ? t('shell.localStorage') : '本地运行 · 由你掌控'}</footer></main><SponsorNotice targetId="ofm-sponsor-menu-desktop" placement="side" /><DisclaimerDialog open={disclaimerOpen} onClose={() => { setDisclaimerOpen(false); setDisclaimer(current => current ? { ...current, acknowledged: true } : current) }} /></div>
 }
 createRoot(document.getElementById('root')!).render(<App />)

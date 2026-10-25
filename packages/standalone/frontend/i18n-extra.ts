@@ -2,6 +2,15 @@ import type { Locale } from './i18n'
 
 export const EXTRA_DICTIONARY: Record<Locale, Record<string, string>> = {
   en: {
+    // New Navigation & Workbench (v2.7.1)
+    'shell.nav.workspace': 'Model Workbench',
+    'shell.nav.agents': 'Clients & Subscriptions',
+    'shell.nav.providers': 'Aggregated Channels',
+    'shell.nav.library': 'Resource Library',
+    'shell.nav.routing': 'Routing Groups',
+    'shell.disclaimer': 'Terms & Disclaimer',
+    'channels.connect': 'Connect',
+
     // Models table and actions
     'models.thModel': 'Model / ID',
     'models.thChannel': 'Channel & Capabilities',
@@ -114,6 +123,15 @@ export const EXTRA_DICTIONARY: Record<Locale, Record<string, string>> = {
   },
 
   'pt-BR': {
+    // New Navigation & Workbench (v2.7.1)
+    'shell.nav.workspace': 'Workbench de Modelos',
+    'shell.nav.agents': 'Clientes e Assinaturas',
+    'shell.nav.providers': 'Canais Agregados',
+    'shell.nav.library': 'Biblioteca de Recursos',
+    'shell.nav.routing': 'Grupos de Roteamento',
+    'shell.disclaimer': 'Termos de Uso e Isenção',
+    'channels.connect': 'Conectar',
+
     // Models table and actions
     'models.thModel': 'Modelo / ID',
     'models.thChannel': 'Canal e Recursos',
@@ -226,6 +244,15 @@ export const EXTRA_DICTIONARY: Record<Locale, Record<string, string>> = {
   },
 
   es: {
+    // New Navigation & Workbench (v2.7.1)
+    'shell.nav.workspace': 'Workbench de Modelos',
+    'shell.nav.agents': 'Clientes y Suscripciones',
+    'shell.nav.providers': 'Canales Agregados',
+    'shell.nav.library': 'Biblioteca de Recursos',
+    'shell.nav.routing': 'Grupos de Enrutamiento',
+    'shell.disclaimer': 'Términos de Uso y Descargo',
+    'channels.connect': 'Conectar',
+
     // Models table and actions
     'models.thModel': 'Modelo / ID',
     'models.thChannel': 'Canal y Capacidades',
@@ -338,6 +365,15 @@ export const EXTRA_DICTIONARY: Record<Locale, Record<string, string>> = {
   },
 
   fr: {
+    // New Navigation & Workbench (v2.7.1)
+    'shell.nav.workspace': 'Atelier de Modèles',
+    'shell.nav.agents': 'Clients et Abonnements',
+    'shell.nav.providers': 'Canaux Agrégés',
+    'shell.nav.library': 'Bibliothèque de Ressources',
+    'shell.nav.routing': 'Groupes de Routage',
+    'shell.disclaimer': 'Conditions d\'utilisation et Clause de non-responsabilité',
+    'channels.connect': 'Connecter',
+
     // Models table and actions
     'models.thModel': 'Modèle / ID',
     'models.thChannel': 'Canal et Capacités',
@@ -450,6 +486,15 @@ export const EXTRA_DICTIONARY: Record<Locale, Record<string, string>> = {
   },
 
   zh: {
+    // New Navigation & Workbench (v2.7.1)
+    'shell.nav.workspace': '模型工作台',
+    'shell.nav.agents': '客户端与订阅',
+    'shell.nav.providers': '聚合渠道',
+    'shell.nav.library': '资源库',
+    'shell.nav.routing': '路由组',
+    'shell.disclaimer': '使用须知与免责声明',
+    'channels.connect': '连接',
+
     // Models table and actions
     'models.thModel': '模型 / ID',
     'models.thChannel': '渠道与能力',

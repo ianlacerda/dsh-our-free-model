@@ -45,7 +45,7 @@ export function ChannelBrowser({ rpc, summary }: { rpc: Rpc; summary: Summary & 
     void rpc('usage.autoCheckin', {}).then(value => {
       if (mounted.current) setAuto(value.autoCheckin)
     }).catch(() => {})
-    const timer = setInterval(() => { void reload() }, 45000)
+    const timer = setInterval(() => { if (!document.hidden) void reload() }, 45000)
     return () => { mounted.current = false; sequence.current++; clearInterval(timer) }
   }, [rpc, reload])
   useEffect(() => {
@@ -67,14 +67,14 @@ export function ChannelBrowser({ rpc, summary }: { rpc: Rpc; summary: Summary & 
     const status = statuses?.[provider.id]
     const isConnected = (status?.accounts?.enabled ?? 0) > 0 && !status?.closed
     return `${provider.name} ${provider.org}`.toLowerCase().includes(search.toLowerCase().trim())
-      && (filter === 'all' || (status !== undefined && (filter === 'connected' ? isConnected : !isConnected)))
+      && (filter === 'all' || (filter === 'connected' ? isConnected : !isConnected))
   })
   const counts: Record<string, number> = {
     all: providers.length,
     connected,
     pending: providers.filter(provider => {
       const status = statuses?.[provider.id]
-      return status !== undefined && (status.closed || (status.accounts?.enabled ?? 0) <= 0)
+      return !status || status.closed || (status.accounts?.enabled ?? 0) <= 0
     }).length,
   }
   return <>
@@ -113,18 +113,18 @@ export function ChannelBrowser({ rpc, summary }: { rpc: Rpc; summary: Summary & 
       <div className="channel-results-meta"><span>{t('channels.countChannels', { n: rows.length })}</span><span><SlidersHorizontal size={13} />{t('channels.accountsAndModelsSub')}</span></div>
       <div className="provider-grid">{rows.map(provider => {
         const status = statuses?.[provider.id]
-        const state = status === undefined ? t('channels.reading') : status.closed ? t('channels.closed') : (status.accounts?.enabled ?? 0) > 0 ? t('channels.filterConnected') : t('channels.filterPending')
-        const isConn = state === t('channels.filterConnected')
+        const isConn = (status?.accounts?.enabled ?? 0) > 0 && !status?.closed
+        const state = status?.closed ? t('channels.closed') : isConn ? t('channels.filterConnected') : t('channels.filterPending')
         const name = t(`channels.providers.${provider.id}.name`) || provider.name
         const org = t(`channels.providers.org.${provider.org}`) || provider.org
         const note = t(`channels.providers.${provider.id}.note`) || provider.note
-        return <Card className="provider-card" key={provider.id}>
-          <div className="provider-card-top"><span className="provider-logo" style={{ color: provider.accent, backgroundColor: `${provider.accent}0d` }}>{name.slice(0, 2).toUpperCase()}</span>
-            <Badge tone={isConn ? 'success' : 'neutral'}>{isConn && <span className="status-dot" />}{state}</Badge></div>
-          <h2>{name}</h2><div className="provider-org">{org}</div><p className="provider-description">{note}</p>
+        return <Card className="provider-card channel-directory-row" key={provider.id}>
+          <span className="provider-logo" style={{ color: provider.accent, backgroundColor: `${provider.accent}0d` }}>{name.slice(0, 2).toUpperCase()}</span>
+          <div className="channel-directory-name"><h2>{name}</h2><div className="provider-org">{org}</div><p className="provider-description">{note}</p></div>
           <div className="provider-counts"><span>{t('channels.accounts')} <strong>{status ? status.accounts?.total ?? 0 : '—'}</strong></span>
             <span>{t('usage.thModel')} <strong>{status ? Math.max(0, (status.models?.total ?? 0) - (status.models?.disabled ?? 0)) : '—'}</strong></span></div>
-          <Button variant="outline" className="provider-manage" onClick={() => select(provider.id)}>{t('channels.manage')} <ArrowRight size={14} /></Button>
+          <Badge tone={isConn ? 'success' : 'neutral'}>{isConn && <span className="status-dot" />}{state}</Badge>
+          <Button variant="outline" className="provider-manage" onClick={() => select(provider.id)}>{isConn ? t('channels.manage') : t('channels.connect')}<ArrowRight size={14} /></Button>
         </Card>
       })}</div>
       {rows.length === 0 && <Card className="channel-empty"><Search size={24} /><h2>{t('channels.empty')}</h2><p>{t('channels.emptySub')}</p><Button variant="outline" onClick={() => { setSearch(''); setFilter('all') }}>{t('channels.reset')}</Button></Card>}
