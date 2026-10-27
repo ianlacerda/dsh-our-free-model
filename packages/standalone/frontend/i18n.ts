@@ -1612,11 +1612,18 @@ for (const [loc, dict] of Object.entries(EXTRA_DICTIONARY)) {
   }
 }
 
-export function t(key: string, params?: Record<string, string | number>): string {
+export function t(
+  key: string,
+  fallbackOrParams?: string | Record<string, string | number>,
+  params?: Record<string, string | number>
+): string {
   const dict = DICTIONARY[currentLocale] || DICTIONARY.en
-  let text = dict[key] || DICTIONARY.en[key] || DICTIONARY.zh[key] || key
-  if (params) {
-    for (const [k, v] of Object.entries(params)) {
+  const hasFallback = typeof fallbackOrParams === 'string'
+  const fallback = hasFallback ? fallbackOrParams : undefined
+  const actualParams = hasFallback ? params : (fallbackOrParams as Record<string, string | number> | undefined)
+  let text = dict[key] || DICTIONARY.en[key] || DICTIONARY.zh[key] || fallback || key
+  if (actualParams) {
+    for (const [k, v] of Object.entries(actualParams)) {
       text = text.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v))
     }
   }

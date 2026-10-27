@@ -3,6 +3,7 @@ import { ArrowRight, Cable, Check, CircleAlert, FlaskConical, ListRestart, Refre
 import { Badge, Button, Input, Switch } from './components/ui'
 import { WorkbenchDialog } from './components/workbench-dialog'
 import { failureMessage, management, useManagementResource } from './management'
+import { t, useLocale } from './i18n'
 import type { Host } from './types'
 
 interface Provider {
@@ -17,7 +18,7 @@ interface Directory { registry: Provider[]; configured: Record<string, Configura
 const connected = (provider: Provider, config?: Configuration) => !!config?.enabled && (config.hasKey || provider.authKind === 'none')
 const modelList = (text: string) => [...new Set(text.split(/[\n,]+/).map(row => row.trim()).filter(Boolean))]
 const endpoint = (url: string) => {
-  try { const value = new URL(url); return value.host + value.pathname.replace(/\/$/, '') } catch { return url || '未设置 API 地址' }
+  try { const value = new URL(url); return value.host + value.pathname.replace(/\/$/, '') } catch { return url || (typeof t === 'function' ? t('providers.noApiAddress') : '未设置 API 地址') }
 }
 
 function ProviderEditor({ provider, configuration, onClose, onSaved }: {
@@ -52,12 +53,12 @@ function ProviderEditor({ provider, configuration, onClose, onSaved }: {
           baseUrl: url.toString(), models: modelList(models), enabled,
         })
         if (!live.current) return
-        setHasKey(hasKey || !!key.trim()); setKey(''); setSaved(true); setDirty(false); setStatus('渠道配置已保存。')
+        setHasKey(hasKey || !!key.trim()); setKey(''); setSaved(true); setDirty(false); setStatus(typeof t === 'function' ? t('providers.configSaved') : '渠道配置已保存。')
       } else if (action === 'test') {
         const result = await management<{ ok?: boolean; success?: boolean; lastTest?: { ok?: boolean } }>('/providers/test', { providerId: provider.id })
         if (result.success === false || result.lastTest?.ok === false) throw new Error('连接测试未通过，请检查 API 地址、密钥与模型。')
         if (!live.current) return
-        setStatus(result.ok === true || result.success === true || result.lastTest?.ok === true ? '连接测试通过。' : '测试请求已完成，服务未返回明确的通过状态。')
+        setStatus(result.ok === true || result.success === true || result.lastTest?.ok === true ? (typeof t === 'function' ? t('providers.testPassed') : '连接测试通过。') : '测试请求已完成，服务未返回明确的通过状态。')
       } else if (action === 'discover') {
         const result = await management<{ models?: (string | { id: string })[]; configured?: Configuration; provider?: Configuration }>('/providers/discover', { providerId: provider.id })
         if (!live.current) return
@@ -65,7 +66,7 @@ function ProviderEditor({ provider, configuration, onClose, onSaved }: {
         if (discovered) {
           setModels(discovered.map(row => typeof row === 'string' ? row : row.id).join('\n'))
           setDirty(true)
-          setStatus(`已发现 ${discovered.length} 个模型，请保存模型配置。`)
+          setStatus(typeof t === 'function' ? t('providers.discoveredModels', { n: discovered.length }) : `已发现 ${discovered.length} 个模型，请保存模型配置。`)
         } else setStatus('模型发现请求已完成，服务未返回模型列表。')
       } else {
         await management('/providers/remove', { providerId: provider.id })
@@ -76,31 +77,32 @@ function ProviderEditor({ provider, configuration, onClose, onSaved }: {
     } catch (reason) { if (live.current) setError(failureMessage(reason)) }
     finally { lock.current = false; if (live.current) setBusy('') }
   }
-  return <WorkbenchDialog title={`${provider.name} · ${saved ? '渠道配置' : '连接渠道'}`} onClose={onClose} busy={!!busy}>
+  return <WorkbenchDialog title={`${provider.name} · ${saved ? (typeof t === 'function' ? t('providers.channelConfig') : '渠道配置') : (typeof t === 'function' ? t('providers.connectChannel') : '连接渠道')}`} onClose={onClose} busy={!!busy}>
     <form className="wb-form" onSubmit={event => { event.preventDefault(); void run('save') }}>
       <div className="wb-form-meta"><Badge tone="blue">{provider.format}</Badge><Badge>{provider.category}</Badge><span>{provider.authKind}</span></div>
-      <label>API 地址<Input required type="url" value={baseUrl} disabled={!!busy} onChange={event => change(() => setBaseUrl(event.target.value))} /></label>
+      <label>{typeof t === 'function' ? t('providers.apiAddress') : 'API 地址'}<Input required type="url" value={baseUrl} disabled={!!busy} onChange={event => change(() => setBaseUrl(event.target.value))} /></label>
       <label>API Key<Input type="password" autoComplete="new-password" spellCheck={false} value={key}
-        placeholder={hasKey ? '已保存密钥；留空保留' : '输入 API Key'} disabled={!!busy}
+        placeholder={hasKey ? (typeof t === 'function' ? t('providers.keyPlaceholderSaved') : '已保存密钥；留空保留') : (typeof t === 'function' ? t('providers.keyPlaceholder') : '输入 API Key')} disabled={!!busy}
         onChange={event => change(() => setKey(event.target.value))} /></label>
-      <label>模型<textarea rows={5} spellCheck={false} value={models} placeholder="每行一个模型 ID" disabled={!!busy} onChange={event => change(() => setModels(event.target.value))} /></label>
-      <div className="wb-form-switch"><span>启用渠道</span><Switch checked={enabled} disabled={!!busy} aria-label="启用渠道" onCheckedChange={value => change(() => setEnabled(value))} /></div>
+      <label>{typeof t === 'function' ? t('models.thModel') : '模型'}<textarea rows={5} spellCheck={false} value={models} placeholder={typeof t === 'function' ? t('providers.modelsPlaceholder') : '每行一个模型 ID'} disabled={!!busy} onChange={event => change(() => setModels(event.target.value))} /></label>
+      <div className="wb-form-switch"><span>{typeof t === 'function' ? t('providers.enableChannel') : '启用渠道'}</span><Switch checked={enabled} disabled={!!busy} aria-label={typeof t === 'function' ? t('providers.enableChannel') : '启用渠道'} onCheckedChange={value => change(() => setEnabled(value))} /></div>
       {error && <p className="wb-error" role="alert"><CircleAlert size={15} />{error}</p>}
       {status && <p className="wb-status" role="status"><Check size={15} />{status}</p>}
       <div className="wb-form-actions">
-        <Button variant="outline" disabled={!!busy || !saved || dirty} onClick={() => void run('test')} busy={busy === 'test'}><FlaskConical size={15} />测试连接</Button>
-        <Button variant="outline" disabled={!!busy || !saved || dirty} onClick={() => void run('discover')} busy={busy === 'discover'}><ListRestart size={15} />发现模型</Button>
-        <Button type="submit" disabled={!!busy} busy={busy === 'save'}><Save size={15} />{saved ? '保存配置' : '保存并连接'}</Button>
+        <Button variant="outline" disabled={!!busy || !saved || dirty} onClick={() => void run('test')} busy={busy === 'test'}><FlaskConical size={15} />{typeof t === 'function' ? t('providers.testConnection') : '测试连接'}</Button>
+        <Button variant="outline" disabled={!!busy || !saved || dirty} onClick={() => void run('discover')} busy={busy === 'discover'}><ListRestart size={15} />{typeof t === 'function' ? t('providers.discoverModels') : '发现模型'}</Button>
+        <Button type="submit" disabled={!!busy} busy={busy === 'save'}><Save size={15} />{saved ? (typeof t === 'function' ? t('providers.saveConfig') : '保存配置') : (typeof t === 'function' ? t('providers.saveAndConnect') : '保存并连接')}</Button>
       </div>
       {saved && <div className="wb-remove">
-        {removing ? <><span>移除本机渠道配置？</span><Button variant="outline" disabled={!!busy} onClick={() => setRemoving(false)}>取消</Button><Button variant="outline" className="wb-danger" busy={busy === 'remove'} disabled={!!busy} onClick={() => void run('remove')}><Trash2 size={14} />确认移除</Button></>
-          : <Button variant="ghost" className="wb-danger" disabled={!!busy} onClick={() => setRemoving(true)}><Trash2 size={14} />移除连接</Button>}
+        {removing ? <><span>{typeof t === 'function' ? t('providers.confirmRemovePrompt') : '移除本机渠道配置？'}</span><Button variant="outline" disabled={!!busy} onClick={() => setRemoving(false)}>{typeof t === 'function' ? t('common.cancel') : '取消'}</Button><Button variant="outline" className="wb-danger" busy={busy === 'remove'} disabled={!!busy} onClick={() => void run('remove')}><Trash2 size={14} />{typeof t === 'function' ? t('common.confirmDelete') : '确认移除'}</Button></>
+          : <Button variant="ghost" className="wb-danger" disabled={!!busy} onClick={() => setRemoving(true)}><Trash2 size={14} />{typeof t === 'function' ? t('providers.removeConnection') : '移除连接'}</Button>}
       </div>}
     </form>
   </WorkbenchDialog>
 }
 
 export function Providers({ active, host }: { active: boolean; host: Host }) {
+  useLocale()
   const { data, error, loading, reload } = useManagementResource<Directory>('/providers', active)
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('all')
@@ -117,14 +119,14 @@ export function Providers({ active, host }: { active: boolean; host: Host }) {
       && (filter === 'all' || (filter === 'connected' ? isConnected : !isConnected))
   })
   return <div className="pd-page">
-    <header className="wb-heading"><div><span className="wb-eyebrow">PROVIDERS</span><h1>聚合渠道</h1><p>第三方 API 与自有密钥</p></div>
-      <Button variant="outline" title="刷新渠道目录" aria-label="刷新渠道目录" disabled={loading || !!selected} busy={loading} onClick={() => void reload()}><RefreshCw size={15} /><span>刷新</span></Button></header>
-    <div className="wb-summary"><span><strong>{data ? registry.length : '—'}</strong> 全部渠道</span><span><i className="wb-dot" /><strong>{data ? totalConnected : '—'}</strong> 已连接</span><span><strong>{data ? registry.length - totalConnected : '—'}</strong> 未连接</span></div>
-    <div className="wb-toolbar"><label className="wb-search"><Search size={16} /><Input aria-label="搜索聚合渠道" value={search} placeholder="搜索渠道、地址或协议" onChange={event => setSearch(event.target.value)} /></label>
-      <select aria-label="渠道分类" value={category} onChange={event => setCategory(event.target.value)}><option value="all">全部分类</option>{categories.map(value => <option key={value} value={value}>{value}</option>)}</select>
-      <div className="wb-segments" aria-label="连接状态">{[['all', '全部'], ['connected', '已连接'], ['pending', '未连接']].map(([id, name]) => <button key={id} type="button" aria-pressed={filter === id} onClick={() => setFilter(id)}>{name}</button>)}</div></div>
+    <header className="wb-heading"><div><span className="wb-eyebrow">PROVIDERS</span><h1>{typeof t === 'function' ? t('providers.heading') : '聚合渠道'}</h1><p>{typeof t === 'function' ? t('providers.sub') : '第三方 API 与自有密钥'}</p></div>
+      <Button variant="outline" title={typeof t === 'function' ? t('providers.heading') : '刷新渠道目录'} aria-label={typeof t === 'function' ? t('providers.heading') : '刷新渠道目录'} disabled={loading || !!selected} busy={loading} onClick={() => void reload()}><RefreshCw size={15} /><span>{typeof t === 'function' ? t('common.refresh') : '刷新'}</span></Button></header>
+    <div className="wb-summary"><span><strong>{data ? registry.length : '—'}</strong> {typeof t === 'function' ? t('providers.allChannels') : '全部渠道'}</span><span><i className="wb-dot" /><strong>{data ? totalConnected : '—'}</strong> {typeof t === 'function' ? t('providers.connected') : '已连接'}</span><span><strong>{data ? registry.length - totalConnected : '—'}</strong> {typeof t === 'function' ? t('providers.notConnected') : '未连接'}</span></div>
+    <div className="wb-toolbar"><label className="wb-search"><Search size={16} /><Input aria-label={typeof t === 'function' ? t('providers.heading') : '搜索聚合渠道'} value={search} placeholder={typeof t === 'function' ? t('providers.searchPlaceholder') : '搜索渠道、地址或协议'} onChange={event => setSearch(event.target.value)} /></label>
+      <select aria-label={typeof t === 'function' ? t('providers.allCategories') : '渠道分类'} value={category} onChange={event => setCategory(event.target.value)}><option value="all">{typeof t === 'function' ? t('providers.allCategories') : '全部分类'}</option>{categories.map(value => <option key={value} value={value}>{value}</option>)}</select>
+      <div className="wb-segments" aria-label={typeof t === 'function' ? t('models.thState') : '连接状态'}>{[['all', typeof t === 'function' ? t('common.all') : '全部'], ['connected', typeof t === 'function' ? t('providers.connected') : '已连接'], ['pending', typeof t === 'function' ? t('providers.notConnected') : '未连接']].map(([id, name]) => <button key={id} type="button" aria-pressed={filter === id} onClick={() => setFilter(id)}>{name}</button>)}</div></div>
     {error && <div className="wb-feedback wb-error" role="alert"><CircleAlert size={16} /><span>{error}</span><Button variant="outline" disabled={loading} onClick={() => void reload()}>重试</Button></div>}
-    <div className="wb-list-caption"><span>{rows.length} 个渠道</span><span>协议 / 模型 / 连接状态</span></div>
+    <div className="wb-list-caption"><span>{typeof t === 'function' ? t('providers.channelCount', { n: rows.length }) : `${rows.length} 个渠道`}</span><span>{typeof t === 'function' ? t('providers.tableCaption') : '协议 / 模型 / 连接状态'}</span></div>
     <div className="pd-list" aria-busy={loading}>
       {rows.map(provider => {
         const config = configured[provider.id], isConnected = connected(provider, config)
@@ -132,14 +134,14 @@ export function Providers({ active, host }: { active: boolean; host: Host }) {
           <span className={`wb-app-icon ${isConnected ? 'is-green' : ''}`}><Cable size={21} /></span>
           <div className="pd-name"><strong>{provider.name}</strong><small title={config?.baseUrl || provider.baseUrl}>{endpoint(config?.baseUrl || provider.baseUrl)}</small></div>
           <div className="pd-protocol"><Badge>{provider.format}</Badge><small>{provider.category}</small></div>
-          <span className="pd-model-count">{config?.models?.length ?? provider.modelCount ?? '未知'} <small>模型</small></span>
-          <Badge tone={isConnected ? 'success' : 'neutral'} dot={isConnected}>{isConnected ? '已连接' : '未连接'}</Badge>
-          <Button variant="outline" onClick={() => ['oauth', 'adc'].includes(provider.authKind) ? host.navigate('agents') : setSelected(provider)}>{isConnected || config ? <Settings2 size={14} /> : <ArrowRight size={14} />}{['oauth', 'adc'].includes(provider.authKind) ? '导入订阅' : isConnected || config ? '配置' : '连接'}</Button>
+          <span className="pd-model-count">{config?.models?.length ?? provider.modelCount ?? (typeof t === 'function' ? t('models.unknownLimit') : '未知')} <small>{typeof t === 'function' ? t('models.thModel') : '模型'}</small></span>
+          <Badge tone={isConnected ? 'success' : 'neutral'} dot={isConnected}>{isConnected ? (typeof t === 'function' ? t('providers.connected') : '已连接') : (typeof t === 'function' ? t('providers.notConnected') : '未连接')}</Badge>
+          <Button variant="outline" onClick={() => ['oauth', 'adc'].includes(provider.authKind) ? host.navigate('agents') : setSelected(provider)}>{isConnected || config ? <Settings2 size={14} /> : <ArrowRight size={14} />}{['oauth', 'adc'].includes(provider.authKind) ? (typeof t === 'function' ? t('providers.importSubscription') : '导入订阅') : isConnected || config ? (typeof t === 'function' ? t('providers.configure') : '配置') : (typeof t === 'function' ? t('providers.connect') : '连接')}</Button>
         </div>
       })}
-      {!data && loading && <div className="wb-empty" role="status"><RefreshCw size={22} /><strong>正在读取渠道目录</strong></div>}
-      {data && rows.length === 0 && <div className="wb-empty"><Search size={24} /><strong>{registry.length ? '没有匹配的渠道' : '渠道目录为空'}</strong>
-        {registry.length > 0 && <Button variant="outline" onClick={() => { setSearch(''); setCategory('all'); setFilter('all') }}>清除筛选</Button>}</div>}
+      {!data && loading && <div className="wb-empty" role="status"><RefreshCw size={22} /><strong>{typeof t === 'function' ? t('providers.loading') : '正在读取渠道目录'}</strong></div>}
+      {data && rows.length === 0 && <div className="wb-empty"><Search size={24} /><strong>{registry.length ? (typeof t === 'function' ? t('providers.noMatching') : '没有匹配的渠道') : (typeof t === 'function' ? t('providers.empty') : '渠道目录为空')}</strong>
+        {registry.length > 0 && <Button variant="outline" onClick={() => { setSearch(''); setCategory('all'); setFilter('all') }}>{typeof t === 'function' ? t('library.clearFilters') : '清除筛选'}</Button>}</div>}
     </div>
     {selected && active && <ProviderEditor key={selected.id} provider={selected} configuration={configured[selected.id]} onClose={() => setSelected(undefined)} onSaved={async () => { await Promise.all([reload(), host.refresh()]) }} />}
   </div>

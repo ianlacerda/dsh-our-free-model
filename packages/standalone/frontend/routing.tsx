@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, Check, CircleAlert, Eye, Layers3, Pencil, Plus, Ref
 import { Badge, Button, Input, Switch } from './components/ui'
 import { WorkbenchDialog } from './components/workbench-dialog'
 import { failureMessage, management, useManagementResource } from './management'
+import { t, useLocale } from './i18n'
 import type { Host } from './types'
 import './routing.css'
 
@@ -21,7 +22,16 @@ const strategies: Record<Strategy, { name: string; detail: string }> = {
   usage: { name: '最低用量', detail: '优先选择本机已记录调用次数最少的成员' },
   pace: { name: '每周配速', detail: '优先选择每周剩余额度 / 剩余小时最高的成员' },
 }
-const strategyName = (value: string) => strategies[value as Strategy]?.name ?? value
+const strategyName = (value: string) => {
+  if (typeof t === 'function') {
+    if (value === 'fallback') return t('routing.stratFallback')
+    if (value === 'round-robin') return t('routing.stratRoundRobin')
+    if (value === 'smart') return t('routing.stratSmart')
+    if (value === 'usage') return t('routing.stratUsage')
+    if (value === 'pace') return t('routing.stratPace')
+  }
+  return strategies[value as Strategy]?.name ?? value
+}
 const capacityNumber = (value?: number | null) => typeof value === 'number' && Number.isFinite(value) && value > 0
   ? value.toLocaleString('zh-CN') : '未知'
 const capability = (value?: boolean | null) => value === true ? '支持' : value === false ? '不支持' : '未知'
@@ -188,6 +198,7 @@ function RoutingEditor({ combo, data, onClose, onSaved }: {
 }
 
 export function Routing({ active, host }: { active: boolean; host: Host }) {
+  useLocale()
   const { data, error: loadError, loading, reload } = useManagementResource<RoutingData>('/routing', active)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all')
@@ -225,28 +236,28 @@ export function Routing({ active, host }: { active: boolean; host: Host }) {
     finally { lock.current = false; if (live.current) setBusy('') }
   }
   return <div className="wb-page rt-page">
-    <header className="wb-heading"><div><span className="wb-eyebrow">ROUTING</span><h1>模型路由</h1></div><Button variant="outline" aria-label="刷新路由" title="刷新路由" disabled={blocked} busy={loading} onClick={() => void reload()}><RefreshCw size={15} />刷新</Button></header>
-    <div className="wb-summary"><span><strong>{data ? combos.length : '—'}</strong> 路由组</span><span><i className="wb-dot" /><strong>{data ? combos.filter(combo => combo.enabled).length : '—'}</strong> 已启用</span><span><strong>{data ? data.models.length : '—'}</strong> 可选模型</span></div>
-    <div className="wb-toolbar rt-toolbar"><label className="wb-search"><Search size={16} /><Input aria-label="搜索路由组" placeholder="搜索路由组或成员" value={search} onChange={event => setSearch(event.target.value)} /></label>
-      <select aria-label="路由组状态" value={filter} onChange={event => setFilter(event.target.value)}><option value="all">全部状态</option><option value="enabled">已启用</option><option value="disabled">已停用</option></select>
-      <Button className="rt-create" disabled={blocked || !data} onClick={() => { setStatus(''); setError(''); setEditor('new') }}><Plus size={15} />新建路由组</Button></div>
+    <header className="wb-heading"><div><span className="wb-eyebrow">ROUTING</span><h1>{typeof t === 'function' ? t('routing.heading') : '模型路由'}</h1></div><Button variant="outline" aria-label={typeof t === 'function' ? t('routing.refresh') : '刷新路由'} title={typeof t === 'function' ? t('routing.refresh') : '刷新路由'} disabled={blocked} busy={loading} onClick={() => void reload()}><RefreshCw size={15} />{typeof t === 'function' ? t('common.refresh') : '刷新'}</Button></header>
+    <div className="wb-summary"><span><strong>{data ? combos.length : '—'}</strong> {typeof t === 'function' ? t('routing.routingGroups') : '路由组'}</span><span><i className="wb-dot" /><strong>{data ? combos.filter(combo => combo.enabled).length : '—'}</strong> {typeof t === 'function' ? t('routing.enabled') : '已启用'}</span><span><strong>{data ? data.models.length : '—'}</strong> {typeof t === 'function' ? t('routing.availableModels') : '可选模型'}</span></div>
+    <div className="wb-toolbar rt-toolbar"><label className="wb-search"><Search size={16} /><Input aria-label={typeof t === 'function' ? t('routing.heading') : '搜索路由组'} placeholder={typeof t === 'function' ? t('routing.searchPlaceholder') : '搜索路由组或成员'} value={search} onChange={event => setSearch(event.target.value)} /></label>
+      <select aria-label={typeof t === 'function' ? t('models.thState') : '路由组状态'} value={filter} onChange={event => setFilter(event.target.value)}><option value="all">{typeof t === 'function' ? t('routing.allStates') : '全部状态'}</option><option value="enabled">{typeof t === 'function' ? t('routing.enabled') : '已启用'}</option><option value="disabled">{typeof t === 'function' ? t('routing.disabled') : '已停用'}</option></select>
+      <Button className="rt-create" disabled={blocked || !data} onClick={() => { setStatus(''); setError(''); setEditor('new') }}><Plus size={15} />{typeof t === 'function' ? t('routing.newGroup') : '新建路由组'}</Button></div>
     {(error || loadError) && <div className="wb-feedback wb-error" role="alert"><CircleAlert size={16} /><span>{error || loadError}</span>{loadError && <Button variant="outline" disabled={blocked} onClick={() => void reload()}>重试</Button>}</div>}
     {status && <div className="wb-feedback wb-status" role="status"><Check size={16} /><span>{status}</span></div>}
     <section className="rt-list" aria-label="路由组列表" aria-busy={loading}>
       {rows.map(combo => <div className="rt-group" key={combo.id}>
         <div className="rt-group-row"><span className="wb-app-icon is-green"><Route size={20} /></span><div className="rt-group-name"><strong>{combo.name}</strong><small>{combo.id}</small></div>
-          <div className="rt-group-strategy"><Badge tone="blue">{strategyName(combo.strategy)}</Badge><small>{combo.models.length} 个成员 · {combo.stickyLimit} 粘性回合</small></div>
-          <Switch checked={combo.enabled} disabled={blocked} aria-label={`启用路由组 ${combo.name}`} onCheckedChange={() => void run(combo)} />
-          <div className="rt-group-actions"><Button variant="ghost" disabled={blocked} title="编辑路由组" aria-label={`编辑路由组 ${combo.name}`} onClick={() => { setError(''); setStatus(''); setEditor(combo) }}><Pencil size={15} /></Button><Button variant="ghost" className="wb-danger" disabled={blocked} title="删除路由组" aria-label={`删除路由组 ${combo.name}`} onClick={() => setRemoving(combo.id)}><Trash2 size={15} /></Button></div>
+          <div className="rt-group-strategy"><Badge tone="blue">{strategyName(combo.strategy)}</Badge><small>{typeof t === 'function' ? t('routing.membersAndSticky', { members: combo.models.length, sticky: combo.stickyLimit }) : `${combo.models.length} 个成员 · ${combo.stickyLimit} 粘性回合`}</small></div>
+          <Switch checked={combo.enabled} disabled={blocked} aria-label={`${typeof t === 'function' ? t('routing.enabled') : '启用路由组'} ${combo.name}`} onCheckedChange={() => void run(combo)} />
+          <div className="rt-group-actions"><Button variant="ghost" disabled={blocked} title={typeof t === 'function' ? t('routing.editGroup') : '编辑路由组'} aria-label={`${typeof t === 'function' ? t('routing.editGroup') : '编辑路由组'} ${combo.name}`} onClick={() => { setError(''); setStatus(''); setEditor(combo) }}><Pencil size={15} /></Button><Button variant="ghost" className="wb-danger" disabled={blocked} title={typeof t === 'function' ? t('routing.deleteGroup') : '删除路由组'} aria-label={`${typeof t === 'function' ? t('routing.deleteGroup') : '删除路由组'} ${combo.name}`} onClick={() => setRemoving(combo.id)}><Trash2 size={15} /></Button></div>
         </div>
         <ol className="rt-group-members">{combo.models.map((id, index) => <li key={`${id}:${index}`}><span>{index + 1}</span><span title={id}>{names.get(id) || id}</span></li>)}</ol>
-        {removing === combo.id && <div className="wb-remove rt-remove"><span>删除路由组“{combo.name}”？</span><Button variant="outline" disabled={!!busy} onClick={() => setRemoving('')}>取消</Button><Button variant="outline" className="wb-danger" disabled={!!busy} busy={busy === combo.id} onClick={() => void run(combo, true)}><Trash2 size={14} />确认删除</Button></div>}
+        {removing === combo.id && <div className="wb-remove rt-remove"><span>{typeof t === 'function' ? t('routing.confirmDeleteGroup', { name: combo.name }) : `删除路由组“${combo.name}”？`}</span><Button variant="outline" disabled={!!busy} onClick={() => setRemoving('')}>{typeof t === 'function' ? t('common.cancel') : '取消'}</Button><Button variant="outline" className="wb-danger" disabled={!!busy} busy={busy === combo.id} onClick={() => void run(combo, true)}><Trash2 size={14} />{typeof t === 'function' ? t('common.confirmDelete') : '确认删除'}</Button></div>}
       </div>)}
-      {!data && loading && <div className="wb-empty" role="status"><RefreshCw size={22} /><strong>正在读取路由配置</strong></div>}
-      {data && !rows.length && <div className="wb-empty"><Layers3 size={24} /><strong>{combos.length ? '没有匹配的路由组' : '尚无路由组'}</strong>{combos.length
-        ? <Button variant="outline" onClick={() => { setSearch(''); setFilter('all') }}>清除筛选</Button>
-        : <Button variant="outline" disabled={blocked} onClick={() => setEditor('new')}><Plus size={15} />新建路由组</Button>}</div>}
+      {!data && loading && <div className="wb-empty" role="status"><RefreshCw size={22} /><strong>{typeof t === 'function' ? t('routing.loading') : '正在读取路由配置'}</strong></div>}
+      {data && !rows.length && <div className="wb-empty"><Layers3 size={24} /><strong>{combos.length ? (typeof t === 'function' ? t('routing.noMatching') : '没有匹配的路由组') : (typeof t === 'function' ? t('routing.empty') : '尚无路由组')}</strong>{combos.length
+        ? <Button variant="outline" onClick={() => { setSearch(''); setFilter('all') }}>{typeof t === 'function' ? t('library.clearFilters') : '清除筛选'}</Button>
+        : <Button variant="outline" disabled={blocked} onClick={() => setEditor('new')}><Plus size={15} />{typeof t === 'function' ? t('routing.newGroup') : '新建路由组'}</Button>}</div>}
     </section>
-    {editor && data && active && <RoutingEditor key={editor === 'new' ? 'new' : editor.id} combo={editor === 'new' ? undefined : editor} data={data} onClose={() => setEditor(undefined)} onSaved={() => afterWrite('路由组已保存。')} />}
+    {editor && data && active && <RoutingEditor key={editor === 'new' ? 'new' : editor.id} combo={editor === 'new' ? undefined : editor} data={data} onClose={() => setEditor(undefined)} onSaved={() => afterWrite(typeof t === 'function' ? t('routing.groupSaved') || '路由组已保存。' : '路由组已保存。')} />}
   </div>
 }
