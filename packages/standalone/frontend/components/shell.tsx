@@ -1,10 +1,11 @@
-import { Coffee, Activity, Boxes, Cable, ChevronRight, Globe, Handshake, LayoutDashboard, LogOut, Moon, Network, Settings2, ShieldCheck, Sun, Monitor, PanelsTopLeft, LibraryBig, Route } from 'lucide-react'
+import { Coffee, Activity, Boxes, Cable, ChevronRight, Globe, Handshake, LayoutDashboard, LogOut, Moon, Network, Settings2, ShieldCheck, Sun, Monitor, PanelsTopLeft, LibraryBig, Route, RotateCw } from 'lucide-react'
 import { useState } from 'react'
 import { flushSync } from 'react-dom'
 import brandMark from '../../../../icon.svg?inline'
 import { Badge, Button } from './ui'
 import { LOCALES, useLocale, t, type Locale } from '../i18n'
 import type { Host, Page, Summary } from '../types'
+import { hasDesktopBridge } from '../desktop-update'
 
 const navigation = [
   { groupKey: 'workspaceGroup', items: [
@@ -22,7 +23,10 @@ const navigation = [
     { id: 'eac', key: 'eac', icon: Handshake },
     { id: 'connection', key: 'connection', icon: Cable },
   ] },
-  { groupKey: 'managementGroup', items: [{ id: 'settings', key: 'settings', icon: Settings2 }] },
+  { groupKey: 'managementGroup', items: [
+    { id: 'settings', key: 'settings', icon: Settings2 },
+    { id: 'updates', key: 'updates', icon: RotateCw },
+  ] },
   { groupKey: 'sponsorGroup', items: [{ id: 'sponsor', key: 'sponsor', icon: Coffee }] },
 ] as const
 
@@ -83,7 +87,7 @@ export function LanguageSelect() {
 export const pageNames: Record<Page, string> = {
   overview: '概览', workspace: '模型工作台', models: '模型清单', usage: '用量统计', channels: 'EAC router',
   agents: '客户端与订阅', providers: '聚合渠道', library: '资源库', routing: '路由组',
-  eac: 'EAC 协付渠道', settings: '服务设置', connection: 'API 接入', sponsor: '来自赞助商的广告',
+  eac: 'EAC 协付渠道', settings: '服务设置', updates: '应用更新', connection: 'API 接入', sponsor: '来自赞助商的广告',
 }
 
 export function Sidebar({ page, summary, host, onDisclaimer }: { page: Page; summary?: Summary; host: Host; onDisclaimer?(): void }) {
@@ -98,7 +102,7 @@ export function Sidebar({ page, summary, host, onDisclaimer }: { page: Page; sum
     </div>
     <nav className="console-nav" aria-label="Navigation">{navigation.map(group => <div className="nav-group" key={group.groupKey}>
       <span className="nav-group-label">{t(`shell.nav.${group.groupKey}`)}</span>
-      {group.items.map(item => <button key={item.id} id={item.id === 'sponsor' ? 'ofm-sponsor-menu-desktop' : undefined} className={`console-nav-item ${item.id === 'sponsor' ? 'ofm-sponsor-nav' : ''} ${page === item.id ? 'selected' : ''}`}
+      {group.items.filter(item => item.id !== 'updates' || hasDesktopBridge()).map(item => <button key={item.id} id={item.id === 'sponsor' ? 'ofm-sponsor-menu-desktop' : undefined} className={`console-nav-item ${item.id === 'sponsor' ? 'ofm-sponsor-nav' : ''} ${page === item.id ? 'selected' : ''}`}
         aria-current={page === item.id ? 'page' : undefined} onClick={() => host.navigate(item.id)}>
         <span className="console-nav-indicator" aria-hidden="true" />
         <item.icon size={18} strokeWidth={1.7} /><span>{t(`shell.nav.${item.key}`)}</span>
